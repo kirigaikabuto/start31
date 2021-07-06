@@ -2,12 +2,19 @@ package start31
 
 import (
 	"encoding/json"
+	"github.com/djumanoff/amqp"
 	"github.com/google/uuid"
 	redis_lib "github.com/kirigaikabuto/common-lib31"
 	users "github.com/kirigaikabuto/users31"
 	"io/ioutil"
 	"net/http"
 	"time"
+)
+
+const (
+	createUserAmqpEndpoint   = "users.create"
+	getByUsernameAndPassword = "users.getByUsernameAndPassword"
+	getById                  = "users.getById"
 )
 
 type HttpEndpoints interface {
@@ -18,12 +25,12 @@ type HttpEndpoints interface {
 
 type httpEndpoints struct {
 	//variable connection to db
-	usersStore users.UsersStore
-	redisStore *redis_lib.RedisConnectStore
+	amqpConnect amqp.Client
+	redisStore  *redis_lib.RedisConnectStore
 }
 
-func NewHttpEndpoints(uS users.UsersStore, rS *redis_lib.RedisConnectStore) HttpEndpoints {
-	return &httpEndpoints{usersStore: uS, redisStore: rS}
+func NewHttpEndpoints(cl amqp.Client, rS *redis_lib.RedisConnectStore) HttpEndpoints {
+	return &httpEndpoints{amqpConnect: cl, redisStore: rS}
 }
 
 func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
@@ -64,22 +71,7 @@ func (h *httpEndpoints) RegisterEndpoint() func(w http.ResponseWriter, r *http.R
 			})
 			return
 		}
-		oldUser, err := h.usersStore.GetByUsernameAndPassword(user.Username, user.Password)
-		if err != nil && err != users.ErrNoUser {
-			respondJSON(w, http.StatusInternalServerError, HttpError{
-				Message:    err.Error(),
-				StatusCode: http.StatusInternalServerError,
-			})
-			return
-		}
-		if oldUser != nil {
-			respondJSON(w, http.StatusBadRequest, HttpError{
-				Message:    ErrUserAlreadyExist.Error(),
-				StatusCode: http.StatusBadRequest,
-			})
-			return
-		}
-		response, err := h.usersStore.Create(user)
+		data, err := h.amqpConnect.Call(createUserAmqpEndpoint, amqp.Message{Body: jsonData})
 		if err != nil {
 			respondJSON(w, http.StatusInternalServerError, HttpError{
 				Message:    err.Error(),
@@ -87,7 +79,16 @@ func (h *httpEndpoints) RegisterEndpoint() func(w http.ResponseWriter, r *http.R
 			})
 			return
 		}
-		respondJSON(w, http.StatusCreated, response)
+		createdUser := &users.User{}
+		err = json.Unmarshal(data.Body, createdUser)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusCreated, createdUser)
 		return
 	}
 }
@@ -102,8 +103,7 @@ func (h *httpEndpoints) LoginEndpoint() func(w http.ResponseWriter, r *http.Requ
 			})
 			return
 		}
-		req := &LoginRequest{}
-		err = json.Unmarshal(jsonData, &req)
+		data, err := h.amqpConnect.Call(getByUsernameAndPassword, amqp.Message{Body: jsonData})
 		if err != nil {
 			respondJSON(w, http.StatusInternalServerError, HttpError{
 				Message:    err.Error(),
@@ -111,7 +111,8 @@ func (h *httpEndpoints) LoginEndpoint() func(w http.ResponseWriter, r *http.Requ
 			})
 			return
 		}
-		user, err := h.usersStore.GetByUsernameAndPassword(req.Username, req.Password)
+		user := &users.User{}
+		err = json.Unmarshal(data.Body, user)
 		if err != nil {
 			respondJSON(w, http.StatusInternalServerError, HttpError{
 				Message:    err.Error(),
@@ -138,7 +139,8 @@ func (h *httpEndpoints) ProfileEndpoint() func(w http.ResponseWriter, r *http.Re
 	return func(w http.ResponseWriter, r *http.Request) {
 		contextData := r.Context().Value("user_id")
 		userId := contextData.(string)
-		response, err := h.usersStore.Get(userId)
+		cmd := &users.User{Id: userId}
+		dataJson, err := json.Marshal(cmd)
 		if err != nil {
 			respondJSON(w, http.StatusInternalServerError, HttpError{
 				Message:    err.Error(),
@@ -146,7 +148,24 @@ func (h *httpEndpoints) ProfileEndpoint() func(w http.ResponseWriter, r *http.Re
 			})
 			return
 		}
-		respondJSON(w, http.StatusOK, response)
+		data, err := h.amqpConnect.Call(getById, amqp.Message{Body: dataJson})
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		user := &users.User{}
+		err = json.Unmarshal(data.Body, &user)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusOK, user)
 		return
 	}
 }
