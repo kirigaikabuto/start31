@@ -19,10 +19,10 @@ type HttpEndpoints interface {
 type httpEndpoints struct {
 	//variable connection to db
 	usersStore users.UsersStore
-	redisStore *redis_lib.RedisStore
+	redisStore *redis_lib.RedisConnectStore
 }
 
-func NewHttpEndpoints(uS users.UsersStore, rS *redis_lib.RedisStore) HttpEndpoints {
+func NewHttpEndpoints(uS users.UsersStore, rS *redis_lib.RedisConnectStore) HttpEndpoints {
 	return &httpEndpoints{usersStore: uS, redisStore: rS}
 }
 
