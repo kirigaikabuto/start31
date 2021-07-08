@@ -202,7 +202,16 @@ func (h *httpEndpoints) CreateProductEndpoint() func(w http.ResponseWriter, r *h
 			})
 			return
 		}
-		respondJSON(w, http.StatusCreated, data)
+		createdProduct := &products31.Product{}
+		err = json.Unmarshal(data.Body, &createdProduct)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusCreated, createdProduct)
 		return
 	}
 }
@@ -217,7 +226,16 @@ func (h *httpEndpoints) ListProductEndpoint() func(w http.ResponseWriter, r *htt
 			})
 			return
 		}
-		respondJSON(w, http.StatusOK, data)
+		products := []products31.Product{}
+		err = json.Unmarshal(data.Body, products)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusOK, products)
 		return
 	}
 }
