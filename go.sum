@@ -54,6 +54,8 @@ github.com/kirigaikabuto/common-lib31 v0.0.0-20210706120850-840dc13781e9 h1:0UuO
 github.com/kirigaikabuto/common-lib31 v0.0.0-20210706120850-840dc13781e9/go.mod h1:xEO5U6Xyb2ScLkHfdPXAZrPf8U+4hiYt8KgVWyk9510=
 github.com/kirigaikabuto/common-lib31 v0.0.0-20210706124316-694cfb658709 h1:qruLLLcaJVs+2Vc7wV813lUneEY9T1e3ihBXpL6Vj5U=
 github.com/kirigaikabuto/common-lib31 v0.0.0-20210706124316-694cfb658709/go.mod h1:xEO5U6Xyb2ScLkHfdPXAZrPf8U+4hiYt8KgVWyk9510=
+github.com/kirigaikabuto/orders31 v0.0.0-20210708121146-5874b5a4900b h1:gmtSv97o/VuP/evGStZvK9owWA1BiVjWSHiK0KJBizU=
+github.com/kirigaikabuto/orders31 v0.0.0-20210708121146-5874b5a4900b/go.mod h1:nXEp77zxpf5Kn7ooxNaCVQMNyu2g+A/sFuZbXhOnDGA=
 github.com/kirigaikabuto/products31 v0.0.0-20210708113801-c62cd56628d2 h1:yp1U8aJXci5VseBR6m+UQZrzcfZxIaGHu8GlQ6bJRZk=
 github.com/kirigaikabuto/products31 v0.0.0-20210708113801-c62cd56628d2/go.mod h1:1dbb2+ixeP25EROiv57r5Rzh0g1y0naOBK3drkhwTFI=
 github.com/kirigaikabuto/users31 v0.0.0-20210703132012-2ed019bdffaf h1:IT2rhsCTtfNa766INpElBkYIJ0Guo4d5zV0K8u5m+TU=

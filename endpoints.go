@@ -5,6 +5,7 @@ import (
 	"github.com/djumanoff/amqp"
 	"github.com/google/uuid"
 	redis_lib "github.com/kirigaikabuto/common-lib31"
+	"github.com/kirigaikabuto/orders31"
 	"github.com/kirigaikabuto/products31"
 	users "github.com/kirigaikabuto/users31"
 	"io/ioutil"
@@ -18,6 +19,8 @@ const (
 	getById                   = "users.getById"
 	createProductAmqpEndpoint = "products.create"
 	listProductAmqpEndpoint   = "products.list"
+	createOrderAmqpEndpoint   = "orders.create"
+	listOrderAmqpEndpoint     = "orders.list"
 )
 
 type HttpEndpoints interface {
@@ -26,6 +29,8 @@ type HttpEndpoints interface {
 	ProfileEndpoint() func(w http.ResponseWriter, r *http.Request)
 	CreateProductEndpoint() func(w http.ResponseWriter, r *http.Request)
 	ListProductEndpoint() func(w http.ResponseWriter, r *http.Request)
+	CreateOrder() func(w http.ResponseWriter, r *http.Request)
+	ListOrder() func(w http.ResponseWriter, r *http.Request)
 }
 
 type httpEndpoints struct {
@@ -236,6 +241,93 @@ func (h *httpEndpoints) ListProductEndpoint() func(w http.ResponseWriter, r *htt
 			return
 		}
 		respondJSON(w, http.StatusOK, products)
+		return
+	}
+}
+
+func (h *httpEndpoints) CreateOrder() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contextData := r.Context().Value("user_id")
+		userId := contextData.(string)
+		jsonData, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			respondJSON(w, http.StatusBadRequest, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusBadRequest,
+			})
+			return
+		}
+		cmd := &orders31.Order{}
+		err = json.Unmarshal(jsonData, &cmd)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		cmd.UserId = userId
+		req, err := json.Marshal(cmd)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		resJson, err := h.amqpConnect.Call(createOrderAmqpEndpoint, amqp.Message{Body: req})
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		newOrder := &orders31.Order{}
+		err = json.Unmarshal(resJson.Body, &newOrder)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusCreated, newOrder)
+		return
+	}
+}
+
+func (h *httpEndpoints) ListOrder() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contextData := r.Context().Value("user_id")
+		userId := contextData.(string)
+		cmd := &orders31.Order{Id: userId}
+		req, err := json.Marshal(cmd)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		resJson, err := h.amqpConnect.Call(listOrderAmqpEndpoint, amqp.Message{Body: req})
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		orders := &[]orders31.Order{}
+		err = json.Unmarshal(resJson.Body,&orders)
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusCreated, orders)
 		return
 	}
 }
