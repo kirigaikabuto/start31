@@ -301,7 +301,7 @@ func (h *httpEndpoints) ListOrder() func(w http.ResponseWriter, r *http.Request)
 	return func(w http.ResponseWriter, r *http.Request) {
 		contextData := r.Context().Value("user_id")
 		userId := contextData.(string)
-		cmd := &orders31.Order{Id: userId}
+		cmd := &orders31.Order{UserId: userId}
 		req, err := json.Marshal(cmd)
 		if err != nil {
 			respondJSON(w, http.StatusInternalServerError, HttpError{
