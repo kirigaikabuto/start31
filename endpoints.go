@@ -5,6 +5,7 @@ import (
 	"github.com/djumanoff/amqp"
 	"github.com/google/uuid"
 	redis_lib "github.com/kirigaikabuto/common-lib31"
+	"github.com/kirigaikabuto/products31"
 	users "github.com/kirigaikabuto/users31"
 	"io/ioutil"
 	"net/http"
@@ -12,15 +13,19 @@ import (
 )
 
 const (
-	createUserAmqpEndpoint   = "users.create"
-	getByUsernameAndPassword = "users.getByUsernameAndPassword"
-	getById                  = "users.getById"
+	createUserAmqpEndpoint    = "users.create"
+	getByUsernameAndPassword  = "users.getByUsernameAndPassword"
+	getById                   = "users.getById"
+	createProductAmqpEndpoint = "products.create"
+	listProductAmqpEndpoint   = "products.list"
 )
 
 type HttpEndpoints interface {
 	RegisterEndpoint() func(w http.ResponseWriter, r *http.Request)
 	LoginEndpoint() func(w http.ResponseWriter, r *http.Request)
 	ProfileEndpoint() func(w http.ResponseWriter, r *http.Request)
+	CreateProductEndpoint() func(w http.ResponseWriter, r *http.Request)
+	ListProductEndpoint() func(w http.ResponseWriter, r *http.Request)
 }
 
 type httpEndpoints struct {
@@ -166,6 +171,53 @@ func (h *httpEndpoints) ProfileEndpoint() func(w http.ResponseWriter, r *http.Re
 			return
 		}
 		respondJSON(w, http.StatusOK, user)
+		return
+	}
+}
+
+func (h *httpEndpoints) CreateProductEndpoint() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		jsonData, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			respondJSON(w, http.StatusBadRequest, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusBadRequest,
+			})
+			return
+		}
+		product := &products31.Product{}
+		err = json.Unmarshal(jsonData, &product)
+		if product.Name == "" {
+			respondJSON(w, http.StatusBadRequest, HttpError{
+				Message:    "Please write name",
+				StatusCode: http.StatusBadRequest,
+			})
+			return
+		}
+		data, err := h.amqpConnect.Call(createProductAmqpEndpoint, amqp.Message{Body: jsonData})
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusCreated, data)
+		return
+	}
+}
+
+func (h *httpEndpoints) ListProductEndpoint() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data, err := h.amqpConnect.Call(listProductAmqpEndpoint, amqp.Message{})
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, HttpError{
+				Message:    err.Error(),
+				StatusCode: http.StatusInternalServerError,
+			})
+			return
+		}
+		respondJSON(w, http.StatusOK, data)
 		return
 	}
 }
