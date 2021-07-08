@@ -227,7 +227,7 @@ func (h *httpEndpoints) ListProductEndpoint() func(w http.ResponseWriter, r *htt
 			return
 		}
 		products := []products31.Product{}
-		err = json.Unmarshal(data.Body, products)
+		err = json.Unmarshal(data.Body, &products)
 		if err != nil {
 			respondJSON(w, http.StatusInternalServerError, HttpError{
 				Message:    err.Error(),
